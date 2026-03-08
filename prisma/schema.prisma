@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  supabaseId    String?  @unique
+  anilistId     Int?     @unique
+  username      String?
+  email         String?  @unique
+  avatarUrl     String?
+  role          UserRole @default(MEMBER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  watchHistory  WatchHistory[]
+  watchlist     Watchlist[]
+
+  @@map("users")
+}
+
+model WatchHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  animeId     Int
+  episodeId   String
+  episodeNum  Int
+  progress    Float    @default(0)
+  watchedAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@map("watch_history")
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   Int
+  addedAt   DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@map("watchlist")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  ADMIN
+  AGENSI
+  MEMBER
+  DONATUR
+  PREMIUM
+}
