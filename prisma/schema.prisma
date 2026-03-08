@@ -3,8 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Transaction Pooler — untuk production/Vercel (port 6543)
+  url       = env("DATABASE_URL")
+  // Direct Connection — hanya untuk prisma migrate/db push
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
