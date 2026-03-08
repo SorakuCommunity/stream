@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Play, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Anime } from "@/types";
 
 interface AnimeCardProps {
   anime: Anime;
   className?: string;
+  progress?: number; // 0-100 for continue watching
+  lastEp?: number;
 }
 
 function formatCountdown(seconds: number): string {
@@ -19,16 +22,18 @@ function formatCountdown(seconds: number): string {
   return `${m}m lagi`;
 }
 
-export function AnimeCard({ anime, className }: AnimeCardProps) {
+export function AnimeCard({ anime, className, progress, lastEp }: AnimeCardProps) {
   const title = anime.title.english || anime.title.romaji;
   const imageUrl = anime.coverImage.large ?? anime.coverImage.medium;
   const score = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
+  const scoreColor =
+    !anime.averageScore ? "#aaa"
+    : anime.averageScore >= 75 ? "#4ade80"
+    : anime.averageScore >= 60 ? "#facc15"
+    : "#f87171";
 
   return (
-    <Link
-      href={`/watch/${anime.id}`}
-      className={cn("group block relative", className)}
-    >
+    <Link href={`/watch/${anime.id}`} className={cn("group block relative", className)}>
       {/* Cover */}
       <div
         className="relative w-full overflow-hidden"
@@ -39,56 +44,68 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
             src={imageUrl}
             alt={title}
             fill
-            sizes="(max-width: 640px) 40vw, (max-width: 1024px) 20vw, 14vw"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.07]"
+            sizes="(max-width: 640px) 42vw, (max-width: 1024px) 22vw, 15vw"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
             style={{ backgroundColor: anime.coverImage.color ?? "var(--bg-card)" }}
           />
         ) : (
           <div className="w-full h-full skeleton" />
         )}
 
-        {/* Gradient base */}
+        {/* Hover overlay gradient */}
         <div
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.3) 45%, transparent 75%)" }}
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }}
         />
 
-        {/* Score badge */}
+        {/* Play button — center, appears on hover */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 pointer-events-none">
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center shadow-2xl"
+            style={{ backgroundColor: "var(--accent)", boxShadow: "0 4px 24px rgba(var(--accent-rgb),0.5)" }}
+          >
+            <Play size={18} fill="white" strokeWidth={0} className="translate-x-0.5" />
+          </div>
+        </div>
+
+        {/* Score badge — top left */}
         {score && (
           <div
-            className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[0.68rem] font-bold transition-opacity"
+            className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[0.67rem] font-bold"
             style={{
               backgroundColor: "rgba(0,0,0,0.72)",
-              color: anime.averageScore! >= 75 ? "#4ade80" : anime.averageScore! >= 60 ? "#facc15" : "#f87171",
+              backdropFilter: "blur(6px)",
+              color: scoreColor,
               fontFamily: "var(--font-display)",
-              backdropFilter: "blur(4px)",
             }}
           >
-            ★ {score}
+            <Star size={8} fill={scoreColor} strokeWidth={0} />
+            {score}
           </div>
         )}
 
-        {/* Format badge */}
+        {/* Format badge — top right */}
         {anime.format && (
           <div
-            className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[0.65rem] font-bold"
+            className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[0.62rem] font-bold uppercase"
             style={{
               backgroundColor: "rgba(0,0,0,0.72)",
-              color: "#ddd",
+              backdropFilter: "blur(6px)",
+              color: "rgba(255,255,255,0.75)",
               fontFamily: "var(--font-display)",
-              backdropFilter: "blur(4px)",
+              letterSpacing: "0.03em",
             }}
           >
-            {anime.format}
+            {anime.format === "TV_SHORT" ? "Short" : anime.format}
           </div>
         )}
 
-        {/* Airing badge */}
+        {/* Airing next episode */}
         {anime.nextAiringEpisode && (
           <div
-            className="absolute bottom-0 left-0 right-0 px-2 py-1 text-center text-[0.68rem] font-semibold"
+            className="absolute bottom-0 left-0 right-0 py-1 text-center text-[0.67rem] font-semibold"
             style={{
-              background: "linear-gradient(to top, rgba(var(--accent-rgb),0.95), rgba(var(--accent-rgb),0.7))",
+              background: "linear-gradient(to top, rgba(var(--accent-rgb),0.92), rgba(var(--accent-rgb),0.6))",
               color: "#fff",
               fontFamily: "var(--font-display)",
               backdropFilter: "blur(4px)",
@@ -98,13 +115,26 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
           </div>
         )}
 
-        {/* Hover title overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-1 group-hover:translate-y-0">
-          <p className="text-white text-xs font-medium line-clamp-2 leading-snug"
-            style={{ fontFamily: "var(--font-display)" }}>
-            {title}
-          </p>
-        </div>
+        {/* Last ep label for continue watching */}
+        {lastEp !== undefined && !anime.nextAiringEpisode && (
+          <div
+            className="absolute bottom-0 left-0 right-0 p-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300"
+          >
+            <p className="text-[0.68rem]" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-body)" }}>
+              Ep {lastEp} terakhir
+            </p>
+          </div>
+        )}
+
+        {/* Progress bar */}
+        {progress !== undefined && (
+          <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
+            <div
+              className="h-full"
+              style={{ width: `${progress}%`, backgroundColor: "var(--accent)" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Title below */}
@@ -115,11 +145,15 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
         >
           {title}
         </p>
-        {anime.episodes && (
-          <p className="text-[0.7rem] mt-0.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-            {anime.episodes} ep
-          </p>
-        )}
+        <p className="text-[0.7rem] mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
+          {anime.seasonYear && <span>{anime.seasonYear}</span>}
+          {anime.episodes && (
+            <>
+              {anime.seasonYear && <span style={{ opacity: 0.4 }}>·</span>}
+              <span>{anime.episodes} ep</span>
+            </>
+          )}
+        </p>
       </div>
     </Link>
   );

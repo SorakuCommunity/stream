@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, X, Compass, Calendar, Home } from "lucide-react";
+import { Sun, Moon, Search, X, Compass, Calendar, Home, Inbox, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -175,6 +175,24 @@ export function Navbar() {
                 }
               </button>
             )}
+
+            {/* Inbox icon */}
+            <button
+              className="soraku-btn soraku-btn-ghost p-2 hidden md:flex"
+              style={{ borderRadius: "var(--radius)" }}
+              title="Watchlist"
+            >
+              <Inbox size={16} style={{ color: "var(--text-muted)" }} />
+            </button>
+
+            {/* User icon */}
+            <Link href="/profile"
+              className="soraku-btn soraku-btn-ghost p-2 hidden md:flex"
+              style={{ borderRadius: "var(--radius)" }}
+              title="Profil"
+            >
+              <User size={16} style={{ color: "var(--text-muted)" }} />
+            </Link>
 
             {/* Mobile nav icons */}
             <div className="flex md:hidden items-center gap-0.5 ml-0.5">
