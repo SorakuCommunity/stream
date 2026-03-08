@@ -10,28 +10,33 @@ async function fetchAniList(query: string, variables: Record<string, unknown>) {
       body: JSON.stringify({ query, variables }),
       next: { revalidate: 3600 },
     });
-    const json = await res.json();
-    return json.data;
-  } catch {
-    return null;
-  }
+    return (await res.json()).data;
+  } catch { return null; }
 }
 
-const TRENDING_QUERY = `
+const HOME_QUERY = `
   query ($page: Int, $perPage: Int) {
     trending: Page(page: $page, perPage: $perPage) {
       media(type: ANIME, sort: TRENDING_DESC) {
-        id title { romaji english }
-        coverImage { large color }
-        bannerImage averageScore popularity episodes status format season seasonYear
+        id idMal title { romaji english }
+        coverImage { large medium color }
+        bannerImage averageScore popularity episodes status format season seasonYear genres
         nextAiringEpisode { airingAt timeUntilAiring episode }
       }
     }
     popular: Page(page: 1, perPage: 14) {
       media(type: ANIME, sort: POPULARITY_DESC, status: RELEASING) {
-        id title { romaji english }
-        coverImage { large color }
-        bannerImage averageScore popularity episodes status format season seasonYear
+        id idMal title { romaji english }
+        coverImage { large medium color }
+        bannerImage averageScore popularity episodes status format season seasonYear genres
+        nextAiringEpisode { airingAt timeUntilAiring episode }
+      }
+    }
+    topRated: Page(page: 1, perPage: 14) {
+      media(type: ANIME, sort: SCORE_DESC, status_not: NOT_YET_RELEASED) {
+        id idMal title { romaji english }
+        coverImage { large medium color }
+        averageScore popularity episodes status format season seasonYear genres
         nextAiringEpisode { airingAt timeUntilAiring episode }
       }
     }
@@ -39,27 +44,34 @@ const TRENDING_QUERY = `
 `;
 
 export default async function HomePage() {
-  const data = await fetchAniList(TRENDING_QUERY, { page: 1, perPage: 14 });
+  const data = await fetchAniList(HOME_QUERY, { page: 1, perPage: 14 });
 
   const trending: Anime[] = data?.trending?.media ?? [];
-  const popular: Anime[] = data?.popular?.media ?? [];
+  const popular: Anime[]  = data?.popular?.media  ?? [];
+  const topRated: Anime[] = data?.topRated?.media ?? [];
   const heroAnimes = trending.filter((a) => a.bannerImage).slice(0, 5);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      {/* Hero Banner */}
       {heroAnimes.length > 0 && <HeroBanner animes={heroAnimes} />}
 
-      {/* Sections */}
       <AnimeSection
-        title="🔥 Trending Sekarang"
+        emoji="🔥"
+        title="Trending Sekarang"
         href="/search?sort=TRENDING_DESC"
         animes={trending}
       />
       <AnimeSection
-        title="📡 Sedang Tayang"
+        emoji="📡"
+        title="Sedang Tayang"
         href="/search?sort=POPULARITY_DESC&status=RELEASING"
         animes={popular}
+      />
+      <AnimeSection
+        emoji="⭐"
+        title="Skor Tertinggi"
+        href="/search?sort=SCORE_DESC"
+        animes={topRated}
       />
     </div>
   );

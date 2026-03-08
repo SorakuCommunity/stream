@@ -76,7 +76,8 @@ export default function SearchContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <h1 className="text-xl font-bold mb-5" style={{ color: "var(--text-primary)" }}>
+      <h1 className="text-xl font-bold mb-5"
+        style={{ color: "var(--text-primary)", fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>
         Temukan Anime
       </h1>
 

@@ -5,8 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, X, User, Command } from "lucide-react";
+import { Sun, Moon, Search, X, Compass, Calendar, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const NAV_LINKS = [
+  { href: "/", label: "Beranda", icon: Home },
+  { href: "/search", label: "Temukan", icon: Compass },
+  { href: "/schedule", label: "Jadwal", icon: Calendar },
+];
 
 export function Navbar() {
   const router = useRouter();
@@ -14,192 +20,196 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    setIsMobile(window.innerWidth < 500);
-    const onResize = () => setIsMobile(window.innerWidth < 500);
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("resize", onResize);
+    const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener("scroll", onScroll);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Close mobile search on route change
-  useEffect(() => {
-    if (isMobile) setShowMobileSearch(false);
-  }, [pathname, isMobile]);
+  // Close search on route change
+  useEffect(() => { setIsSearchOpen(false); setSearchQuery(""); }, [pathname]);
 
-  // Keyboard shortcut
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-      if (e.key === "Escape") inputRef.current?.blur();
-    },
-    []
-  );
+  // Keyboard shortcut /
+  const handleGlobalKey = useCallback((e: KeyboardEvent) => {
+    if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      setIsSearchOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+    if (e.key === "Escape") { setIsSearchOpen(false); setSearchQuery(""); }
+  }, []);
 
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+    document.addEventListener("keydown", handleGlobalKey);
+    return () => document.removeEventListener("keydown", handleGlobalKey);
+  }, [handleGlobalKey]);
 
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
+  const submitSearch = () => {
+    if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      inputRef.current?.blur();
+      setIsSearchOpen(false);
+      setSearchQuery("");
     }
   };
 
-  const SearchBar = (
-    <div
-      className={cn(
-        "flex flex-1 max-w-md items-center gap-2 px-3 py-1.5 rounded-lg transition-all",
-        "bg-[var(--bg-card)] border border-[var(--border)]",
-        isSearchFocused && "border-[var(--accent)]"
-      )}
-    >
-      <Search
-        size={15}
-        style={{ color: isSearchFocused ? "var(--accent)" : "var(--text-muted)" }}
-        className="shrink-0 transition-colors"
-      />
-      <input
-        ref={inputRef}
-        type="text"
-        placeholder="Cari anime..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onKeyDown={handleSearch}
-        onFocus={() => setIsSearchFocused(true)}
-        onBlur={() => setIsSearchFocused(false)}
-        className="bg-transparent border-none outline-none text-sm w-full text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-        aria-label="Cari anime"
-      />
-      {searchQuery && (
-        <button
-          onClick={() => setSearchQuery("")}
-          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-          aria-label="Hapus pencarian"
-        >
-          <X size={14} />
-        </button>
-      )}
-      {!isMobile && (
-        <span className="hidden md:flex items-center text-xs text-[var(--text-muted)] gap-0.5 shrink-0">
-          <Command size={11} /> /
-        </span>
-      )}
-    </div>
-  );
-
   return (
-    <header
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-200",
-        "backdrop-blur-md",
-        scrolled
-          ? "shadow-sm"
-          : ""
-      )}
-      style={{ backgroundColor: "var(--navbar-bg)" }}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Main row */}
-        <div className="flex items-center gap-3 h-14">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-2 shrink-0 group"
-            aria-label="Soraku Stream"
-          >
-            <Image
-              src="/soraku-logo.png"
-              alt="Soraku"
-              width={32}
-              height={32}
-              className="rounded-full group-hover:scale-105 transition-transform"
-            />
-            <span className="font-bold text-base hidden sm:block"
-              style={{ color: "var(--text-primary)" }}>
-              Soraku{" "}
-              <span style={{ color: "var(--accent)" }}>Stream</span>
-            </span>
-          </Link>
+    <>
+      <header
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+          scrolled ? "shadow-[0_1px_0_rgba(255,255,255,0.04)]" : ""
+        )}
+        style={{ backgroundColor: "var(--navbar-bg)", backdropFilter: "blur(20px) saturate(180%)" }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center h-14 gap-2">
 
-          {/* Nav links — desktop */}
-          <nav className="hidden md:flex items-center gap-1 ml-2">
-            {[
-              { href: "/", label: "Beranda" },
-              { href: "/search", label: "Temukan" },
-              { href: "/schedule", label: "Jadwal" },
-            ].map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  pathname === href
-                    ? "bg-[var(--bg-card)] text-[var(--text-primary)]"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
-                )}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2.5 shrink-0 group mr-1">
+              <div className="relative">
+                <Image
+                  src="/soraku-logo.png"
+                  alt="Soraku"
+                  width={30}
+                  height={30}
+                  className="rounded-full transition-transform duration-200 group-hover:scale-105"
+                />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[var(--accent)] border-2"
+                  style={{ borderColor: "var(--navbar-bg)" }} />
+              </div>
+              <span className="font-display hidden sm:block text-[0.9375rem] font-700 tracking-tight"
+                style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.025em", color: "var(--text-primary)" }}>
+                Soraku{" "}
+                <span style={{ color: "var(--accent)" }}>Stream</span>
+              </span>
+            </Link>
 
-          {/* Search bar — desktop */}
-          {!isMobile && <div className="flex-1">{SearchBar}</div>}
+            {/* Nav links — desktop */}
+            <nav className="hidden md:flex items-center gap-0.5">
+              {NAV_LINKS.map(({ href, label }) => {
+                const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "relative px-3 py-1.5 rounded-lg text-[0.8125rem] font-medium transition-all duration-150",
+                      active
+                        ? "text-[var(--text-primary)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                    )}
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
+                    {active && (
+                      <span className="absolute inset-0 rounded-lg" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }} />
+                    )}
+                    <span className="relative">{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-1 ml-auto">
-            {/* Mobile search toggle */}
-            {isMobile && (
+            <div className="flex-1" />
+
+            {/* Search button / bar */}
+            {!isSearchOpen ? (
               <button
-                onClick={() => setShowMobileSearch((v) => !v)}
-                className="soraku-btn p-2"
-                aria-label="Buka pencarian"
+                onClick={() => { setIsSearchOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[0.8125rem] transition-all"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-body)",
+                }}
               >
-                {showMobileSearch ? <X size={18} /> : <Search size={18} />}
+                <Search size={14} />
+                <span className="hidden sm:block" style={{ minWidth: "110px" }}>Cari anime...</span>
+                <span className="hidden md:flex items-center gap-0.5 ml-1 text-[0.7rem] opacity-50"
+                  style={{ fontFamily: "var(--font-display)", fontWeight: 600 }}>/</span>
               </button>
+            ) : (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg animate-scale-in"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  border: "1px solid var(--accent)",
+                  boxShadow: "0 0 0 3px rgba(var(--accent-rgb), 0.12)",
+                  minWidth: "220px",
+                }}
+              >
+                <Search size={14} style={{ color: "var(--accent)" }} className="shrink-0" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); if (e.key === "Escape") { setIsSearchOpen(false); setSearchQuery(""); } }}
+                  placeholder="Cari anime..."
+                  className="bg-transparent border-none outline-none text-sm w-full"
+                  style={{ color: "var(--text-primary)", fontFamily: "var(--font-body)" }}
+                />
+                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+                  className="shrink-0 transition-opacity hover:opacity-70" style={{ color: "var(--text-muted)" }}>
+                  <X size={14} />
+                </button>
+              </div>
             )}
 
             {/* Theme toggle */}
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="soraku-btn p-2"
+                className="soraku-btn soraku-btn-ghost p-2 ml-0.5"
+                style={{ borderRadius: "var(--radius)" }}
                 aria-label="Ganti tema"
               >
-                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                {theme === "dark"
+                  ? <Sun size={16} style={{ color: "var(--text-muted)" }} />
+                  : <Moon size={16} style={{ color: "var(--text-muted)" }} />
+                }
               </button>
             )}
 
-            {/* Profile */}
-            <Link href="/auth/login" className="soraku-btn p-2" aria-label="Profil">
-              <User size={18} />
-            </Link>
+            {/* Mobile nav icons */}
+            <div className="flex md:hidden items-center gap-0.5 ml-0.5">
+              {NAV_LINKS.slice(1).map(({ href, icon: Icon }) => {
+                const active = pathname.startsWith(href);
+                return (
+                  <Link key={href} href={href}
+                    className={cn("p-2 rounded-lg transition-colors", active ? "" : "")}
+                    style={{
+                      backgroundColor: active ? "var(--bg-card)" : "transparent",
+                      color: active ? "var(--accent)" : "var(--text-muted)",
+                    }}>
+                    <Icon size={17} />
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Mobile search bar */}
-        {isMobile && showMobileSearch && (
-          <div className="pb-3 animate-slide-down">{SearchBar}</div>
+        {/* Bottom border glow when scrolled */}
+        {scrolled && (
+          <div className="absolute bottom-0 left-0 right-0 h-px"
+            style={{ background: "linear-gradient(to right, transparent, var(--border-strong), transparent)" }} />
         )}
-      </div>
-    </header>
+      </header>
+
+      {/* Search overlay on mobile */}
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden animate-fade-in"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+        />
+      )}
+    </>
   );
 }
