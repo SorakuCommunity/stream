@@ -9,7 +9,7 @@ interface Props {
 const ANIME_QUERY = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
-      id title { romaji english native }
+      id idMal title { romaji english native }
       coverImage { large extraLarge }
       bannerImage description averageScore popularity
       episodes status format season seasonYear genres
