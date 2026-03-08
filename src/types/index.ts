@@ -13,6 +13,7 @@ export interface CoverImage {
 
 export interface Anime {
   id: number;
+  idMal?: number;
   title: AnimeTitle;
   coverImage: CoverImage;
   bannerImage?: string;

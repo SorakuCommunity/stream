@@ -24,8 +24,6 @@ interface EpisodeInfo {
 export function WatchClient({ anime }: WatchClientProps) {
   const [episodes, setEpisodes] = useState<EpisodeInfo[]>([]);
   const [currentEp, setCurrentEp] = useState<EpisodeInfo | null>(null);
-  const [sourceType, setSourceType] = useState("default");
-  const [language, setLanguage] = useState("sub");
   const [downloadLink, setDownloadLink] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
@@ -45,15 +43,11 @@ export function WatchClient({ anime }: WatchClientProps) {
       .trim()
       .replace(/\s+/g, "-");
 
-    fetch(
-      `${consumetBase}/anime/animekai/${encodeURIComponent(slug)}`
-    )
+    fetch(`${consumetBase}/anime/animekai/${encodeURIComponent(slug)}`)
       .then((r) => r.json())
       .then((data) => {
-        // AnimeKai returns results array, take first match
         const result = data?.results?.[0];
         if (result?.id) {
-          // Fetch episode list by anime ID
           return fetch(
             `${consumetBase}/anime/animekai/info/${encodeURIComponent(result.id)}`
           ).then((r) => r.json());
@@ -106,13 +100,12 @@ export function WatchClient({ anime }: WatchClientProps) {
             episodeId={currentEp.id}
             animeTitle={animeTitle}
             episodeNumber={currentEp.number}
-            sourceType={sourceType}
-            language={language}
             consumetBase={consumetBase}
             onDownloadLink={setDownloadLink}
             onEpisodeEnd={goToNextEp}
             onPrevEpisode={goToPrevEp}
             onNextEpisode={goToNextEp}
+            malId={anime.idMal ?? undefined}
           />
         ) : (
           <div className="w-full h-full skeleton" />
@@ -131,6 +124,9 @@ export function WatchClient({ anime }: WatchClientProps) {
               <strong style={{ color: "var(--text-primary)" }}>
                 Episode {currentEp.number}
               </strong>
+              {currentEp.title && (
+                <span className="ml-1 opacity-60">— {currentEp.title}</span>
+              )}
             </>
           ) : (
             <span
@@ -140,28 +136,9 @@ export function WatchClient({ anime }: WatchClientProps) {
           )}
         </span>
 
-        {/* Source toggles */}
-        <div className="flex gap-1.5 flex-wrap">
-          {[
-            { s: "default", l: "sub", label: "Sub — Default" },
-            { s: "animekai", l: "sub", label: "Sub — AK" },
-            { s: "default", l: "dub", label: "Dub" },
-          ].map(({ s, l, label }) => (
-            <button
-              key={`${s}-${l}`}
-              onClick={() => {
-                setSourceType(s);
-                setLanguage(l);
-              }}
-              className={cn(
-                "soraku-btn text-xs py-1 px-2.5",
-                sourceType === s && language === l && "soraku-btn-accent"
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Ganti server di ⚙ dalam player
+        </p>
 
         {/* Actions */}
         <div className="flex gap-1.5">
@@ -184,10 +161,6 @@ export function WatchClient({ anime }: WatchClientProps) {
           </button>
         </div>
       </div>
-
-      <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>
-        Jika server saat ini tidak berfungsi, silakan coba server lain di atas.
-      </p>
 
       {/* 2-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
@@ -261,13 +234,9 @@ export function WatchClient({ anime }: WatchClientProps) {
                 style={{ color: "var(--accent)" }}
               >
                 {showDesc ? (
-                  <>
-                    <ChevronUp size={12} /> Lebih sedikit
-                  </>
+                  <><ChevronUp size={12} /> Lebih sedikit</>
                 ) : (
-                  <>
-                    <ChevronDown size={12} /> Selengkapnya
-                  </>
+                  <><ChevronDown size={12} /> Selengkapnya</>
                 )}
               </button>
             </div>
