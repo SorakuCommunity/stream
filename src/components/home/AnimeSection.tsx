@@ -1,38 +1,33 @@
-import Link from "next/link";
 import { AnimeCard, AnimeCardSkeleton } from "@/components/cards/AnimeCard";
 import type { Anime } from "@/types";
 
 interface Props {
   title: string;
-  href?: string;
   animes: Anime[];
   loading?: boolean;
-  emoji?: string;
+  href?: string;
 }
 
-export function AnimeSection({ title, href, animes, loading, emoji }: Props) {
+export function AnimeSection({ title, animes, loading = false, href }: Props) {
   return (
-    <section className="mb-12">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="soraku-section-title">
-          {emoji && <span className="text-base">{emoji}</span>}
-          {title}
-        </h2>
+    <section className="mb-10">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="soraku-section-title">{title}</h2>
         {href && (
-          <Link
+          <a
             href={href}
-            className="text-xs font-600 transition-colors hover:text-[var(--text-primary)] flex items-center gap-1"
-            style={{ fontFamily: "var(--font-display)", fontWeight: 600, color: "var(--accent)" }}
+            className="text-xs font-700 transition-colors hover:text-[var(--text-primary)]"
+            style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-muted)" }}
           >
-            Lihat semua →
-          </Link>
+            Lihat Semua →
+          </a>
         )}
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
         {loading
-          ? Array.from({ length: 14 }).map((_, i) => <AnimeCardSkeleton key={i} />)
-          : animes.map((anime) => <AnimeCard key={anime.id} anime={anime} />)
+          ? Array.from({ length: 6 }).map((_, i) => <AnimeCardSkeleton key={i} />)
+          : animes.slice(0, 12).map((anime) => <AnimeCard key={anime.id} anime={anime} />)
         }
       </div>
     </section>

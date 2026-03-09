@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Download, Share2, Check, ChevronDown, ChevronUp,
-  Star, Tv2, List, Grid3X3, ChevronLeft, ChevronRight,
-  Theater, Maximize2,
+  Download, Share2, Check, ChevronLeft, ChevronRight,
+  Star, List, Grid3X3, RefreshCw, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer, type AnimeProvider } from "@/components/player/VideoPlayer";
+import { searchEpisodes, type EpisodeInfo } from "@/lib/episode-search";
 import type { Anime } from "@/types";
 
 interface WatchClientProps {
@@ -21,13 +21,13 @@ interface WatchClientProps {
   };
 }
 
-interface EpisodeInfo { id: string; number: number; title?: string; }
 const EP_PAGE_SIZE = 50;
 
 export function WatchClient({ anime }: WatchClientProps) {
   const [episodes,     setEpisodes]     = useState<EpisodeInfo[]>([]);
   const [currentEp,    setCurrentEp]    = useState<EpisodeInfo | null>(null);
   const [loadingEps,   setLoadingEps]   = useState(true);
+  const [epError,      setEpError]      = useState(false);
   const [lang,         setLang]         = useState<"sub" | "dub">("sub");
   const [provider,     setProvider]     = useState<AnimeProvider>("animekai");
   const [isTheater,    setIsTheater]    = useState(false);
@@ -36,49 +36,46 @@ export function WatchClient({ anime }: WatchClientProps) {
   const [showDesc,     setShowDesc]     = useState(false);
   const [epGrid,       setEpGrid]       = useState(false);
   const [epPage,       setEpPage]       = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
+
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
 
-  const consumetBase = process.env.NEXT_PUBLIC_CONSUMET_API_URL ?? "https://consumet-api.vercel.app";
+  const consumetBase =
+    process.env.NEXT_PUBLIC_CONSUMET_API_URL ?? "https://consumet-api.vercel.app";
   const title = anime.title.english || anime.title.romaji;
   const epSlice = episodes.slice(epPage * EP_PAGE_SIZE, (epPage + 1) * EP_PAGE_SIZE);
   const epPages = Math.ceil(episodes.length / EP_PAGE_SIZE);
 
+  // ── Fetch episodes with multi-strategy search ──────────────────────────
   const fetchEpisodes = useCallback(async () => {
     setLoadingEps(true);
-    const slug = title.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim().replace(/\s+/g, "-");
-    try {
-      const searchRes = await fetch(`${consumetBase}/anime/animekai/${encodeURIComponent(slug)}`);
-      const searchData = await searchRes.json();
-      const match = searchData?.results?.[0];
-      if (!match?.id) throw new Error("No match");
-      const infoRes = await fetch(`${consumetBase}/anime/animekai/info/${encodeURIComponent(match.id)}`);
-      const info = await infoRes.json();
-      const eps: EpisodeInfo[] = ((info?.episodes ?? []) as { id: string; number: number; title?: string }[]).map((e) => ({
-        id: e.id, number: e.number, title: e.title,
-      }));
-      setEpisodes(eps);
-      if (eps.length > 0) setCurrentEp(eps[0]);
-    } catch {
-      setEpisodes([]);
-    } finally {
-      setLoadingEps(false);
-    }
-  }, [consumetBase, title]);
+    setEpError(false);
+    const eps = await searchEpisodes(
+      consumetBase,
+      anime.title.english,
+      anime.title.romaji,
+    );
+    setEpisodes(eps);
+    if (eps.length > 0) setCurrentEp(eps[0]);
+    else setEpError(true);
+    setLoadingEps(false);
+  }, [consumetBase, anime.title.english, anime.title.romaji]);
 
   useEffect(() => { fetchEpisodes(); }, [fetchEpisodes]);
 
+  // Scroll to active episode
   useEffect(() => {
     if (!currentEp) return;
     const pageIdx = Math.floor((currentEp.number - 1) / EP_PAGE_SIZE);
     setEpPage(pageIdx);
     setTimeout(() => {
-      document.getElementById(`ep-${currentEp.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document.getElementById(`ep-${currentEp.id}`)?.scrollIntoView({
+        behavior: "smooth", block: "nearest",
+      });
     }, 100);
   }, [currentEp]);
 
-  // ── Save watch progress for Continue Watching ────────────────────────────
+  // Save watch progress
   useEffect(() => {
     if (!currentEp) return;
     try {
@@ -97,7 +94,8 @@ export function WatchClient({ anime }: WatchClientProps) {
       });
       localStorage.setItem(KEY, JSON.stringify(filtered.slice(0, 10)));
     } catch {}
-  }, [currentEp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEp?.id]);
 
   const goToEp = (ep: EpisodeInfo) => setCurrentEp(ep);
   const goPrev = () => {
@@ -117,39 +115,45 @@ export function WatchClient({ anime }: WatchClientProps) {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  return (
-    <div className={cn("transition-all duration-300", isTheater ? "bg-black min-h-screen" : "")}>
-      <div className={cn(
-        "mx-auto px-4 sm:px-6 py-6",
-        isTheater ? "max-w-full px-0 py-0" : "max-w-7xl",
-      )}>
+  const studio = anime.studios?.nodes?.[0]?.name;
+  const score  = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
 
-        {/* ── Player area ── */}
+  return (
+    <div
+      className={cn("min-h-screen transition-all duration-300")}
+      style={{ background: isTheater ? "#000" : "var(--bg-primary)" }}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+      }}
+      onTouchEnd={(e) => {
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+          if (dx < 0) goNext(); else goPrev();
+        }
+      }}
+    >
+      <div className={cn(
+        "mx-auto py-4",
+        isTheater ? "max-w-full px-0" : "max-w-7xl px-4 sm:px-6",
+      )}>
+        {/* ── Layout: player + sidebar ── */}
         <div className={cn(
-          "flex gap-5 mb-5 transition-all duration-300",
+          "flex gap-5 mb-5",
           isTheater ? "flex-col" : "flex-col xl:flex-row",
         )}>
-        {/* Player */}
-        <div className={cn("min-w-0", isTheater ? "w-full" : "flex-1")}
-          onTouchStart={(e) => {
-            touchStartX.current = e.touches[0].clientX;
-            touchStartY.current = e.touches[0].clientY;
-          }}
-          onTouchEnd={(e) => {
-            const dx = e.changedTouches[0].clientX - touchStartX.current;
-            const dy = e.changedTouches[0].clientY - touchStartY.current;
-            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-              if (dx < 0) goNext(); else goPrev();
-            }
-          }}
-        >
+
+          {/* Player column */}
+          <div className={cn("min-w-0", isTheater ? "w-full" : "flex-1")}>
+
+            {/* Video */}
             <div
-              className="relative w-full overflow-hidden"
+              className="relative w-full overflow-hidden bg-black"
               style={{
                 aspectRatio: "16/9",
-                backgroundColor: "#000",
                 borderRadius: isTheater ? "0" : "var(--radius-xl)",
-                boxShadow: isTheater ? "none" : "0 8px 40px rgba(0,0,0,0.6)",
+                boxShadow: isTheater ? "none" : "0 8px 48px rgba(0,0,0,0.55)",
               }}
             >
               {currentEp ? (
@@ -168,311 +172,386 @@ export function WatchClient({ anime }: WatchClientProps) {
                   initialProvider={provider}
                   malId={anime.idMal}
                 />
+              ) : loadingEps ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 rounded-full animate-spin"
+                      style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "var(--accent)" }} />
+                    <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-display)" }}>
+                      Mencari episode…
+                    </p>
+                  </div>
+                </div>
               ) : (
-                <div className="w-full h-full skeleton" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center px-6">
+                    <AlertCircle size={36} style={{ color: "rgba(255,255,255,0.3)" }} />
+                    <p className="text-sm font-600" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-display)" }}>
+                      Episode tidak tersedia dari server manapun
+                    </p>
+                    <button
+                      onClick={fetchEpisodes}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-700 transition-all hover:scale-105"
+                      style={{ background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)" }}
+                    >
+                      <RefreshCw size={12} />
+                      Coba Lagi
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
             {/* Controls row */}
             {!isTheater && (
               <div
-                className="flex flex-wrap items-center gap-2 p-3 rounded-2xl mt-3"
-                style={{
-                  background: "var(--glass-bg)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid var(--glass-border)",
-                }}
+                className="flex items-center justify-between gap-3 mt-3 px-1"
               >
-                <span className="text-sm flex-1" style={{ color: "var(--text-secondary)" }}>
-                  {currentEp ? (
-                    <>
-                      Menonton{" "}
-                      <strong style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)" }}>
-                        Episode {currentEp.number}
-                      </strong>
-                    </>
-                  ) : (
-                    <span className="skeleton inline-block rounded w-32 h-4" />
-                  )}
-                </span>
-
                 {/* Sub/Dub */}
-                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--bg-card)" }}>
+                <div
+                  className="flex items-center rounded-xl p-0.5"
+                  style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                >
                   {(["sub", "dub"] as const).map((l) => (
                     <button
                       key={l}
                       onClick={() => setLang(l)}
-                      className="px-3 py-1 rounded-md text-xs font-700 transition-all"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-800 uppercase transition-all"
                       style={{
-                        fontFamily: "var(--font-display)",
-                        fontWeight: 700,
+                        fontFamily: "var(--font-display)", fontWeight: 800,
                         background: lang === l ? "var(--accent)" : "transparent",
                         color: lang === l ? "#fff" : "var(--text-muted)",
                       }}
                     >
-                      {l.toUpperCase()}
+                      {l}
                     </button>
                   ))}
                 </div>
 
-                {/* Provider */}
-                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--bg-card)" }}>
-                  {(["animekai", "gogoanime", "zoro"] as AnimeProvider[]).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setProvider(p)}
-                      className="px-2.5 py-1 rounded-md text-xs font-700 transition-all"
+                {/* Right: download + share */}
+                <div className="flex items-center gap-2">
+                  {downloadLink && (
+                    <a
+                      href={downloadLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-700 transition-all hover:scale-105"
                       style={{
-                        fontFamily: "var(--font-display)",
-                        fontWeight: 700,
-                        background: provider === p ? "var(--bg-hover)" : "transparent",
-                        color: provider === p ? "var(--text-primary)" : "var(--text-muted)",
+                        fontFamily: "var(--font-display)", fontWeight: 700,
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        color: "var(--text-secondary)",
                       }}
                     >
-                      {p === "animekai" ? "AK" : p === "gogoanime" ? "GG" : "HI"}
-                    </button>
-                  ))}
+                      <Download size={12} />
+                      Unduh
+                    </a>
+                  )}
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-700 transition-all hover:scale-105"
+                    style={{
+                      fontFamily: "var(--font-display)", fontWeight: 700,
+                      background: "var(--bg-card)", border: "1px solid var(--border)",
+                      color: isCopied ? "var(--accent)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {isCopied ? <Check size={12} /> : <Share2 size={12} />}
+                    {isCopied ? "Tersalin!" : "Bagikan"}
+                  </button>
                 </div>
-
-                {/* Theater + Download + Share */}
-                <button
-                  onClick={() => setIsTheater((v) => !v)}
-                  className="soraku-btn-ghost p-2 rounded-lg"
-                  title="Mode Bioskop"
-                >
-                  <Theater size={15} style={{ color: "var(--text-muted)" }} />
-                </button>
-                <a
-                  href={downloadLink || "#"}
-                  target="_blank" rel="noopener noreferrer"
-                  className="soraku-btn-ghost p-2 rounded-lg"
-                  title="Unduh"
-                >
-                  <Download size={15} style={{ color: "var(--text-muted)" }} />
-                </a>
-                <button onClick={handleShare} className="soraku-btn-ghost p-2 rounded-lg flex items-center gap-1" title="Bagikan">
-                  {isCopied ? <Check size={15} style={{ color: "var(--accent)" }} /> : <Share2 size={15} style={{ color: "var(--text-muted)" }} />}
-                  {isCopied && <span className="text-xs font-600" style={{ fontFamily: "var(--font-display)", fontWeight: 600, color: "var(--accent)" }}>Disalin!</span>}
-                </button>
               </div>
             )}
 
-            {/* Anime info card — non-theater */}
+            {/* Anime info card — below player (hidden in theater) */}
             {!isTheater && (
-              <div className="flex gap-4 mt-5">
-                <Image
-                  src={anime.coverImage.large ?? "/soraku-logo.png"}
-                  alt={title}
-                  width={72}
-                  height={100}
-                  className="rounded-xl object-cover shrink-0 shadow-lg"
-                />
-                <div className="flex-1 min-w-0">
-                  <Link href={`/anime/${anime.id}`}>
-                    <h1
-                      className="text-base font-800 mb-1.5 leading-snug hover:text-[var(--accent)] transition-colors line-clamp-2"
-                      style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "var(--text-primary)" }}
-                    >
-                      {title}
-                    </h1>
-                  </Link>
-                  <div className="flex flex-wrap gap-2 items-center mb-2">
-                    {anime.averageScore && (
-                      <span className="flex items-center gap-1 text-xs font-600" style={{ fontFamily: "var(--font-display)", fontWeight: 600 }}>
-                        <Star size={10} fill="#facc15" stroke="none" />
-                        <span style={{ color: "#facc15" }}>{(anime.averageScore / 10).toFixed(1)}</span>
-                      </span>
-                    )}
-                    {anime.episodes && (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                        <Tv2 size={10} />
-                        {anime.episodes} ep
-                      </span>
-                    )}
-                    {anime.format && <span className="soraku-badge">{anime.format}</span>}
-                  </div>
-                  {anime.genres?.length && (
-                    <div className="flex flex-wrap gap-1">
-                      {anime.genres.slice(0, 4).map((g: string) => (
-                        <Link
-                          key={g}
-                          href={`/search?genre=${encodeURIComponent(g)}`}
-                          className="soraku-badge soraku-badge-accent hover:opacity-80 transition-opacity"
-                        >
-                          {g}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                  {anime.description && (
-                    <div className="mt-2">
-                      <div
-                        className={cn("text-xs leading-relaxed", !showDesc && "line-clamp-2")}
-                        style={{ color: "var(--text-muted)" }}
-                        dangerouslySetInnerHTML={{ __html: anime.description }}
+              <div
+                className="mt-5 rounded-2xl overflow-hidden"
+                style={{ border: "1px solid var(--border)", background: "var(--bg-card)" }}
+              >
+                <div className="flex gap-4 p-4">
+                  {/* Cover */}
+                  <Link href={`/anime/${anime.id}`} className="shrink-0">
+                    <div className="relative rounded-xl overflow-hidden" style={{ width: 64, aspectRatio: "2/3" }}>
+                      <Image
+                        src={anime.coverImage.large ?? anime.coverImage.medium ?? ""}
+                        alt={title}
+                        fill
+                        className="object-cover"
                       />
-                      <button
-                        onClick={() => setShowDesc((v) => !v)}
-                        className="text-[0.68rem] mt-1 font-600 hover:underline"
-                        style={{ fontFamily: "var(--font-display)", fontWeight: 600, color: "var(--accent)" }}
-                      >
-                        {showDesc ? <><ChevronUp size={11} className="inline" /> Lebih sedikit</> : <><ChevronDown size={11} className="inline" /> Selengkapnya</>}
-                      </button>
                     </div>
-                  )}
+                  </Link>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/anime/${anime.id}`}>
+                      <h1
+                        className="font-800 leading-tight mb-1 line-clamp-2 hover:text-[var(--accent)] transition-colors"
+                        style={{
+                          fontFamily: "var(--font-display)", fontWeight: 800,
+                          fontSize: "0.9375rem", color: "var(--text-primary)",
+                        }}
+                      >
+                        {title}
+                      </h1>
+                    </Link>
+
+                    {/* Meta */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      {score && (
+                        <span className="flex items-center gap-1 text-xs">
+                          <Star size={10} fill="#facc15" stroke="none" />
+                          <span style={{ color: "#facc15", fontFamily: "var(--font-display)", fontWeight: 700 }}>{score}</span>
+                        </span>
+                      )}
+                      {anime.format && (
+                        <span className="soraku-badge">{anime.format}</span>
+                      )}
+                      {anime.episodes && (
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {anime.episodes} ep
+                        </span>
+                      )}
+                      {studio && (
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {studio}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Genres */}
+                    {anime.genres && anime.genres.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {anime.genres.slice(0, 4).map((g) => (
+                          <span key={g} className="soraku-badge soraku-badge-accent text-[0.6rem]">{g}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Description toggle */}
+                    {anime.description && (
+                      <div className="mt-2">
+                        <div
+                          className={cn("text-xs leading-relaxed transition-all overflow-hidden", !showDesc && "line-clamp-2")}
+                          style={{ color: "var(--text-muted)" }}
+                          dangerouslySetInnerHTML={{ __html: anime.description }}
+                        />
+                        <button
+                          onClick={() => setShowDesc((v) => !v)}
+                          className="text-[0.68rem] mt-1 font-600 hover:underline"
+                          style={{ color: "var(--accent)", fontFamily: "var(--font-display)" }}
+                        >
+                          {showDesc ? "Lebih sedikit ↑" : "Baca selengkapnya ↓"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Episode sidebar ── */}
-          {!isTheater && (
+          {/* ── Episode sidebar / panel ── */}
+          <div
+            className={cn(
+              "shrink-0 flex flex-col rounded-2xl overflow-hidden",
+              isTheater ? "w-full max-h-40" : "xl:w-80 2xl:w-96",
+            )}
+            style={{
+              height: isTheater ? "auto" : "min(680px, calc(100vw * 9/16))",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {/* Header */}
             <div
-              className="xl:w-72 shrink-0 rounded-2xl overflow-hidden flex flex-col"
-              style={{
-                background: "var(--glass-bg)",
-                backdropFilter: "blur(20px) saturate(180%)",
-                WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                border: "1px solid var(--glass-border)",
-                boxShadow: "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.04)",
-                maxHeight: "calc(56.25vw + 60px)",
-              }}
+              className="flex items-center justify-between px-4 py-3 shrink-0"
+              style={{ borderBottom: "1px solid var(--border)" }}
             >
-              {/* Sidebar header */}
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-sm font-800"
+                  style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "var(--text-primary)" }}
+                >
+                  EPISODE
+                </span>
+                {episodes.length > 0 && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ background: "var(--bg-hover)", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 700 }}
+                  >
+                    {episodes.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setEpGrid(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+                  style={{
+                    background: !epGrid ? "var(--accent)" : "var(--bg-hover)",
+                    color: !epGrid ? "#fff" : "var(--text-muted)",
+                  }}
+                >
+                  <List size={13} />
+                </button>
+                <button
+                  onClick={() => setEpGrid(true)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+                  style={{
+                    background: epGrid ? "var(--accent)" : "var(--bg-hover)",
+                    color: epGrid ? "#fff" : "var(--text-muted)",
+                  }}
+                >
+                  <Grid3X3 size={13} />
+                </button>
+              </div>
+            </div>
+
+            {/* Pagination */}
+            {epPages > 1 && (
               <div
-                className="flex items-center justify-between px-4 py-3 shrink-0"
+                className="flex items-center gap-1 px-3 py-2 shrink-0 overflow-x-auto"
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
-                <h3
-                  className="text-sm font-700"
-                  style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)" }}
-                >
-                  Episode{" "}
-                  <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>({episodes.length})</span>
-                </h3>
-                <div className="flex items-center gap-1">
+                {Array.from({ length: epPages }).map((_, i) => (
                   <button
-                    onClick={() => setEpGrid(false)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{ color: !epGrid ? "var(--accent)" : "var(--text-muted)", background: !epGrid ? "rgba(var(--accent-rgb),0.1)" : "transparent" }}
+                    key={i}
+                    onClick={() => setEpPage(i)}
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-[0.68rem] font-700 transition-all"
+                    style={{
+                      fontFamily: "var(--font-display)", fontWeight: 700,
+                      background: epPage === i ? "var(--accent)" : "var(--bg-hover)",
+                      color: epPage === i ? "#fff" : "var(--text-muted)",
+                    }}
                   >
-                    <List size={14} />
+                    {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
                   </button>
-                  <button
-                    onClick={() => setEpGrid(true)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{ color: epGrid ? "var(--accent)" : "var(--text-muted)", background: epGrid ? "rgba(var(--accent-rgb),0.1)" : "transparent" }}
-                  >
-                    <Grid3X3 size={14} />
-                  </button>
-                </div>
+                ))}
               </div>
+            )}
 
-              {/* Pagination */}
-              {epPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+            {/* Episode list */}
+            <div className="flex-1 overflow-y-auto">
+              {loadingEps ? (
+                <div className="p-4 space-y-2">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="skeleton h-10 rounded-xl" />
+                  ))}
+                </div>
+              ) : epError || episodes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+                  <AlertCircle size={28} style={{ color: "var(--text-muted)" }} />
+                  <p className="text-sm font-600" style={{ fontFamily: "var(--font-display)", color: "var(--text-muted)" }}>
+                    Tidak ada episode tersedia
+                  </p>
                   <button
-                    onClick={() => setEpPage((p) => Math.max(0, p - 1))}
-                    disabled={epPage === 0}
-                    className="soraku-btn-ghost p-1.5 rounded-lg disabled:opacity-30"
+                    onClick={fetchEpisodes}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-700 transition-all hover:scale-105"
+                    style={{ background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)" }}
                   >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <span className="text-xs font-600" style={{ fontFamily: "var(--font-display)", fontWeight: 600, color: "var(--text-muted)" }}>
-                    {epPage * EP_PAGE_SIZE + 1}–{Math.min((epPage + 1) * EP_PAGE_SIZE, episodes.length)} / {episodes.length}
-                  </span>
-                  <button
-                    onClick={() => setEpPage((p) => Math.min(epPages - 1, p + 1))}
-                    disabled={epPage >= epPages - 1}
-                    className="soraku-btn-ghost p-1.5 rounded-lg disabled:opacity-30"
-                  >
-                    <ChevronRight size={14} />
+                    <RefreshCw size={12} />
+                    Coba Lagi
                   </button>
                 </div>
-              )}
-
-              {/* Episode list */}
-              <div ref={listRef} className="flex-1 overflow-y-auto p-2">
-                {loadingEps ? (
-                  <div className={cn("gap-1.5", epGrid ? "grid grid-cols-4" : "flex flex-col")}>
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div key={i} className={cn("skeleton rounded-lg", epGrid ? "h-9" : "h-8")} />
-                    ))}
-                  </div>
-                ) : episodes.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Tidak ada episode tersedia.</p>
-                  </div>
-                ) : epGrid ? (
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {epSlice.map((ep) => (
+              ) : epGrid ? (
+                <div className="grid grid-cols-5 gap-1.5 p-3">
+                  {epSlice.map((ep) => {
+                    const isActive = currentEp?.id === ep.id;
+                    return (
                       <button
-                        id={`ep-${ep.id}`}
                         key={ep.id}
+                        id={`ep-${ep.id}`}
                         onClick={() => goToEp(ep)}
-                        className="flex items-center justify-center h-9 rounded-lg text-xs font-700 transition-all hover:scale-105"
+                        className="aspect-square rounded-lg text-xs font-800 transition-all hover:scale-105"
                         style={{
-                          fontFamily: "var(--font-display)",
-                          fontWeight: 700,
-                          background: currentEp?.id === ep.id ? "var(--accent)" : "var(--bg-hover)",
-                          color: currentEp?.id === ep.id ? "#fff" : "var(--text-secondary)",
-                          boxShadow: currentEp?.id === ep.id ? "0 2px 10px rgba(var(--accent-rgb),0.4)" : "none",
+                          fontFamily: "var(--font-display)", fontWeight: 800,
+                          background: isActive ? "var(--accent)" : "var(--bg-hover)",
+                          color: isActive ? "#fff" : "var(--text-secondary)",
+                          boxShadow: isActive ? "0 4px 12px rgba(var(--accent-rgb),0.4)" : "none",
                         }}
                       >
                         {ep.number}
                       </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {epSlice.map((ep) => (
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-2 space-y-0.5">
+                  {epSlice.map((ep) => {
+                    const isActive = currentEp?.id === ep.id;
+                    return (
                       <button
-                        id={`ep-${ep.id}`}
                         key={ep.id}
+                        id={`ep-${ep.id}`}
                         onClick={() => goToEp(ep)}
-                        className="text-left px-3 py-2 rounded-xl text-xs font-600 transition-all"
+                        className="w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3"
                         style={{
-                          fontFamily: "var(--font-display)",
-                          fontWeight: 600,
-                          background: currentEp?.id === ep.id ? "rgba(var(--accent-rgb),0.15)" : "transparent",
-                          borderLeft: currentEp?.id === ep.id ? "2px solid var(--accent)" : "2px solid transparent",
-                          color: currentEp?.id === ep.id ? "var(--accent)" : "var(--text-secondary)",
+                          background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
+                          borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                         }}
                       >
-                        Ep {ep.number}
-                        {ep.title && (
-                          <span className="ml-1 opacity-60 line-clamp-1 font-400" style={{ fontWeight: 400 }}>— {ep.title}</span>
-                        )}
+                        <span
+                          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-800"
+                          style={{
+                            fontFamily: "var(--font-display)", fontWeight: 800,
+                            background: isActive ? "var(--accent)" : "var(--bg-hover)",
+                            color: isActive ? "#fff" : "var(--text-muted)",
+                          }}
+                        >
+                          {ep.number}
+                        </span>
+                        <span
+                          className="text-xs font-600 line-clamp-1 flex-1"
+                          style={{
+                            fontFamily: "var(--font-display)", fontWeight: isActive ? 700 : 600,
+                            color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                          }}
+                        >
+                          {ep.title ?? `Episode ${ep.number}`}
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Theater episode strip */}
-        {isTheater && episodes.length > 0 && (
-          <div className="scroll-row px-4 py-3 bg-black/80 backdrop-blur">
-            {episodes.map((ep) => (
-              <button
-                key={ep.id}
-                onClick={() => goToEp(ep)}
-                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-700 transition-all"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  background: currentEp?.id === ep.id ? "var(--accent)" : "rgba(255,255,255,0.08)",
-                  color: currentEp?.id === ep.id ? "#fff" : "rgba(255,255,255,0.5)",
-                }}
+            {/* Prev / Next nav */}
+            {currentEp && (
+              <div
+                className="flex items-center gap-2 px-3 py-2.5 shrink-0"
+                style={{ borderTop: "1px solid var(--border)" }}
               >
-                {ep.number}
-              </button>
-            ))}
+                <button
+                  onClick={goPrev}
+                  disabled={episodes.indexOf(currentEp) <= 0}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-700 transition-all disabled:opacity-30 hover:scale-105 disabled:hover:scale-100"
+                  style={{
+                    fontFamily: "var(--font-display)", fontWeight: 700,
+                    background: "var(--bg-hover)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <ChevronLeft size={13} />
+                  Sebelumnya
+                </button>
+                <button
+                  onClick={goNext}
+                  disabled={episodes.indexOf(currentEp) >= episodes.length - 1}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-700 transition-all disabled:opacity-30 hover:scale-105 disabled:hover:scale-100"
+                  style={{
+                    fontFamily: "var(--font-display)", fontWeight: 700,
+                    background: "var(--bg-hover)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  Selanjutnya
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            )}
           </div>
-        )}
-
+        </div>
       </div>
     </div>
   );
