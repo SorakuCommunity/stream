@@ -37,6 +37,8 @@ export function WatchClient({ anime }: WatchClientProps) {
   const [epGrid,       setEpGrid]       = useState(false);
   const [epPage,       setEpPage]       = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
 
   const consumetBase = process.env.NEXT_PUBLIC_CONSUMET_API_URL ?? "https://consumet-api.vercel.app";
   const title = anime.title.english || anime.title.romaji;
@@ -76,6 +78,27 @@ export function WatchClient({ anime }: WatchClientProps) {
     }, 100);
   }, [currentEp]);
 
+  // ── Save watch progress for Continue Watching ────────────────────────────
+  useEffect(() => {
+    if (!currentEp) return;
+    try {
+      const KEY = "soraku_watch_progress";
+      const existing = JSON.parse(localStorage.getItem(KEY) ?? "[]");
+      const filtered = existing.filter((x: { animeId: number }) => x.animeId !== anime.id);
+      filtered.unshift({
+        animeId: anime.id,
+        animeTitle: title,
+        coverImage: anime.coverImage.large ?? anime.coverImage.medium ?? "",
+        episodeId: currentEp.id,
+        episodeNumber: currentEp.number,
+        currentTime: 0,
+        duration: 0,
+        updatedAt: Date.now(),
+      });
+      localStorage.setItem(KEY, JSON.stringify(filtered.slice(0, 10)));
+    } catch {}
+  }, [currentEp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const goToEp = (ep: EpisodeInfo) => setCurrentEp(ep);
   const goPrev = () => {
     if (!currentEp) return;
@@ -106,8 +129,20 @@ export function WatchClient({ anime }: WatchClientProps) {
           "flex gap-5 mb-5 transition-all duration-300",
           isTheater ? "flex-col" : "flex-col xl:flex-row",
         )}>
-          {/* Player */}
-          <div className={cn("min-w-0", isTheater ? "w-full" : "flex-1")}>
+        {/* Player */}
+        <div className={cn("min-w-0", isTheater ? "w-full" : "flex-1")}
+          onTouchStart={(e) => {
+            touchStartX.current = e.touches[0].clientX;
+            touchStartY.current = e.touches[0].clientY;
+          }}
+          onTouchEnd={(e) => {
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            const dy = e.changedTouches[0].clientY - touchStartY.current;
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+              if (dx < 0) goNext(); else goPrev();
+            }
+          }}
+        >
             <div
               className="relative w-full overflow-hidden"
               style={{

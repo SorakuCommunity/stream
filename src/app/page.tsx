@@ -1,5 +1,6 @@
 import { HeroBanner } from "@/components/home/HeroBanner";
 import { HomeClient } from "@/components/home/HomeClient";
+import { ContinueWatching } from "@/components/home/ContinueWatching";
 import type { Anime } from "@/types";
 
 async function fetchAniList(query: string, variables: Record<string, unknown>) {
@@ -47,13 +48,14 @@ export default async function HomePage() {
   const data = await fetchAniList(HOME_QUERY, { page: 1, perPage: 28 });
 
   const trending: Anime[] = data?.trending?.media ?? [];
-  const popular: Anime[]  = data?.popular?.media  ?? [];
+  const popular:  Anime[] = data?.popular?.media  ?? [];
   const topRated: Anime[] = data?.topRated?.media ?? [];
   const heroAnimes = trending.filter((a) => a.bannerImage).slice(0, 6);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pt-20">
       {heroAnimes.length > 0 && <HeroBanner animes={heroAnimes} />}
+      <ContinueWatching />
       <HomeClient newest={trending} popular={popular} topRated={topRated} />
     </div>
   );

@@ -6,110 +6,91 @@
 
 ---
 
-## ✅ v0.1.0 — "Foundation + Glass UI" *(IN PROGRESS)*
+## ✅ v0.1.0 — "Foundation + Glass UI" *(COMPLETE)*
 
 ### 🔧 Build & Infrastructure
-- [x] Setup Next.js 16 App Router + TailwindCSS v4 + TypeScript strict
-- [x] Fix `@tailwindcss/postcss` missing
-- [x] Fix `cookiesToSet` implicit `any` type
-- [x] Fix `useSearchParams()` Suspense boundary
-- [x] Fix `sourceType` + `language` props
-- [x] Add `idMal` ke type `Anime` + AniList GraphQL
-- [x] Remove unused imports
-- [x] `.npmrc` dengan `legacy-peer-deps=true`
-- [x] Remove `@types/hls.js` (tidak ada di npm)
+- [x] Next.js 16 App Router + TailwindCSS v4 + TypeScript strict
+- [x] Fix semua Vercel build errors (`@types/hls.js`, `cookiesToSet`, Suspense, `.npmrc`)
 - [x] Prisma Transaction Pooler config
 
-### 🎨 Design System v2 — Glass Morphism
-- [x] **Outfit** (display) + **DM Sans** (body) — Google Fonts
-- [x] Deep dark tokens: `#09090c` bg, refined border/hover
-- [x] CSS variables lengkap dengan `--glass-bg`, `--glass-border`
-- [x] `.soraku-glass`, `.soraku-glass-sm`, `.soraku-glass-strong`
-- [x] `.soraku-card-glass` — glass card dengan glow hover
-- [x] `.soraku-btn-glass` — glass button
-- [x] `.soraku-badge-glass`, `.soraku-badge-live` (pulsing glow)
-- [x] `.glow-accent` — accent glow utility
+### 🎨 Design System — Glass Morphism
+- [x] Deep dark: `#09090c`, glass tokens: `--glass-bg`, `--glass-border`
+- [x] `soraku-glass`, `soraku-card-glass`, `soraku-btn-glass`
+- [x] `soraku-badge-live` (pulsing glow), `glow-accent`
 - [x] Animations: `fadeUp`, `scaleIn`, `slideDown`, `floatUp`, `pulseGlow`
+- [x] **Outfit** (display) + **DM Sans** (body)
 
-### 🧭 Navbar — Glass Premium
-- [x] Glass morphism blur(24px) + saturate(200%)
-- [x] Logo glow on hover
-- [x] Search bar dengan glass border + accent glow ring
-- [x] Active link pill dengan glass background
-- [x] Bell notification icon
-- [x] Profile avatar button (glass circle)
-- [x] Keyboard shortcut `/` untuk search
-- [x] Scrolled state: border glow + shadow
+### 🧭 Navbar
+- [x] Glass blur(24px) saturate(200%) + scroll shadow
+- [x] Logo glow on hover + accent dot
+- [x] Animated search bar + `/` keyboard shortcut
+- [x] Active link glass pill
+- [x] Bell + profile glass button
 
-### 🏠 Homepage — Cinematic
-- [x] **Hero Banner** — full cinematic gradients + noise
-  - Cover image floating kanan (Miruro style)
-  - Airing badge live pulsing
-  - Genre pills glass
-  - TONTON + DETAIL buttons (rounded-full glass)
-  - Progress dots animasi lebar
-  - Smooth scale transition
-- [x] **Genre scroll tabs** — glass pill buttons
-- [x] **Community bar** — glass card dengan emoji avatar
-- [x] **NEWEST / POPULAR / TOP RATED** — glass tab switcher
-- [x] **Anime grid** 3→4→5→6→7 columns responsive
+### 🏠 Homepage
+- [x] Hero: cinematic gradient, cover float kanan, genre glass pills, progress dots
+- [x] Genre scroll tabs: glass pills + arrows
+- [x] Community bar: glass card
+- [x] NEWEST/POPULAR/TOP RATED: glass tab switcher + pagination
+- [x] **Continue Watching**: localStorage, progress bar, remove button
 
-### 📄 Anime Info/Detail `/anime/[id]`
-- [x] Banner cinematic + accent color tint
-- [x] Cover image glass shadow (floating)
-- [x] Badges: format, status (live pulse), tahun, score
-- [x] Action buttons: TONTON (accent) + Daftar (glass) + AniList + MAL
-- [x] Stats grid — glass cards 3→5 columns
-- [x] Tab bar: Overview / Karakter / Artwork / Episode
-  - Overview: sinopsis expandable + trailer + related
-  - Karakter: glass character cards (char + VA side by side)
-  - Artwork: masonry layout
-  - Episode: redirect to watch
-- [x] Info sidebar glass card (format, status, durasi, studio, skor)
-- [x] Recommendations grid 3→7 columns
+### 🃏 Anime Card
+- [x] Play overlay + score badge glass
+- [x] Airing countdown bar
+- [x] **Hover preview card** (desktop): banner + genres + "Tonton Sekarang"
+
+### 📄 Anime Detail `/anime/[id]`
+- [x] Cinematic banner + color tint
+- [x] Cover float glass shadow
+- [x] Badges: format, status live pulse, tahun, score
+- [x] Stats grid: glass cards
+- [x] Tab: Overview / Karakter / Artwork / Episode
+- [x] Info sidebar glass card
+- [x] Recommendations grid
 
 ### 📺 Watch Page
-- [x] Player dengan border-radius + box-shadow dramatis
-- [x] Controls row — glass container
-- [x] Sub/Dub toggle glass pill
-- [x] Provider switcher glass pill (AK/GG/HI)
-- [x] Theater Mode toggle
-- [x] Download + Share (copy link) buttons
-- [x] Anime info card bawah player (cover + genres + desc)
-- [x] Episode sidebar — glass container
-  - List/Grid view toggle
-  - Pagination 50/page
-  - Active episode: left border accent
-  - Theater mode episode strip
+- [x] Player shadow dramatis + rounded-xl
+- [x] Controls row: glass container
+- [x] Sub/Dub + Provider glass pill toggle
+- [x] Episode sidebar: glass, list/grid view, pagination
+- [x] Theater mode + strip
+- [x] Anime info card bawah player
+- [x] **Continue Watching save** otomatis saat mulai episode
+- [x] **Mobile swipe gesture**: swipe kiri/kanan → prev/next episode
 
 ### 🎬 VideoPlayer
 - [x] Multi-source: AnimeKai / Gogoanime / HiAnime
-- [x] **Subtitle / Terjemahan** panel — pilih track subtitle
-  - **Auto-select Indonesian subtitle** jika tersedia
-  - Inject `<track>` element ke video
-  - Panel menampilkan label "Indonesia 🇮🇩" untuk ID subtitle
-- [x] Settings panels: Player / Server / Kualitas / Kecepatan / Subtitle
-- [x] Aniskip auto-skip intro/outro
-- [x] Screenshot + download PNG
-- [x] Playback speed 0.25×–2×
-- [x] Quality selector + position restore
-- [x] Progress bar seek
-- [x] Skip button Bahasa Indonesia ("Lewati Opening" / "Lewati Ending")
-- [x] Theater Mode toggle
-- [x] Error state dengan quick-switch server
-- [x] Controls semua teks Bahasa Indonesia
+- [x] **Episode fetch fallback** — auto-coba server lain jika gagal
+- [x] **Keyboard shortcuts**:
+  - `Space`/`K` — play/pause
+  - `←` / `→` — mundur/maju 10 detik
+  - `↑` / `↓` — volume naik/turun
+  - `F` — fullscreen
+  - `T` — theater mode
+  - `M` — mute
+  - `N` / `P` — next/prev episode
+- [x] **OSD flash message** untuk setiap aksi keyboard
+- [x] **Playback position restore** — resume otomatis dari posisi terakhir
+- [x] Subtitle panel: auto-select Indonesian 🇮🇩
+- [x] Aniskip: "Lewati Opening / Lewati Ending"
+- [x] Screenshot, speed, quality, settings panel
+- [x] Error state + quick-switch server
 
 ### 📅 Schedule Page
-- [x] Glass cards per hari (7 hari mulai hari ini)
-- [x] "Hari ini" live badge pulsing
-- [x] Cover image + episode + waktu airing
-- [x] Scrollable per card (max-h)
+- [x] Glass cards per hari (mulai hari ini)
+- [x] Live badge pulsing (hari ini)
+- [x] Jam tayang + episode + cover
+
+### 🚫 Custom 404 Page
+- [x] Floating logo + glow animasi
+- [x] 404 gradient text besar
+- [x] Glass card: "Beranda" + "Cari Anime" + "Kembali"
+- [x] Soraku version badge
 
 ### 👟 Footer
-- [x] Brand + description
-- [x] Glass social icons
+- [x] Glass social icons (Discord, GitHub)
 - [x] Link groups: Navigasi + Komunitas
-- [x] "● LIVE" badge di bottom bar
+- [x] LIVE badge + copyright
 
 ### 🔐 Auth
 - [x] AniList OAuth 2.0
@@ -118,84 +99,74 @@
 
 ---
 
-## 🔜 v0.1.0 — Sisa yang Belum Dikerjakan
-
-- [ ] **Custom 404 page** — Soraku branding
-- [ ] **Keyboard shortcuts** — Space, Arrow keys, F (fullscreen), T (theater)
-- [ ] **Continue Watching** di homepage — localStorage
-- [ ] **Playback position restore** — resume ke posisi terakhir
-- [ ] **Loading skeleton** watch page yang lebih mirip Miruro
-- [ ] **Episode fetch fallback** — auto-coba Gogoanime/Zoro jika AnimeKai gagal
-- [ ] **Mobile swipe gesture** — swipe episode prev/next
-- [ ] **Anime card hover preview** — mini info card saat hover (desktop)
-
----
-
 ## 🔜 v0.2.0 — "User Features" *(PLANNED)*
 
-- [ ] **User Profile page** (`/profile`)
-- [ ] **AniList Auto-Sync** — update progress ke AniList
-- [ ] **Watch History** — persist ke Supabase
-- [ ] **Watchlist** — simpan anime
-- [ ] **Notification bell** — episode baru
-- [ ] **PWA support**
-- [ ] Middleware route protection
+- [ ] **User Profile page** (`/profile`) — avatar, watch history, watchlist, AniList stats
+- [ ] **AniList Auto-Sync** — update progress otomatis ke AniList saat episode selesai
+- [ ] **Watch History** — persist ke Supabase untuk user login
+- [ ] **Watchlist** — bookmark anime, kelola list
+- [ ] **Notification bell** — episode baru dari anime yang di-follow
+- [ ] **PWA support** — installable ke home screen
+- [ ] Middleware route protection (role-based)
 
 ---
 
 ## 🔜 v0.2.5 — "Discovery" *(PLANNED)*
 
-- [ ] **Discover page** (`/discover`) — filter rich
+- [ ] **Discover page** (`/discover`) — filter genre, tahun, season, skor, format
 - [ ] **Seasonal anime page**
-- [ ] **Search improvements** — hover preview card
+- [ ] **Search improvement** — hasil lebih kaya + suggest
 
 ---
 
 ## 🔜 v0.3.0 — "Social" *(PLANNED)*
 
-- [ ] **News page** (`/news`)
+- [ ] **News page** (`/news`) — agregasi berita anime
 - [ ] **Episode comments** (Supabase realtime)
-- [ ] **Watch Room** — nonton bareng (SORAKU EXCLUSIVE)
+- [ ] **Watch Room** — nonton bareng dengan sync player (SORAKU EXCLUSIVE)
+  - Room code system
+  - Discord VC sync optional
 
 ---
 
 ## 🔜 v0.4.0 — "Content Expansion" *(PLANNED)*
 
 - [ ] **Manga reader** (`/manga/[id]`) — MangaDex API
-- [ ] **Admin panel** — manage users, roles
-- [ ] **Role system** live
+- [ ] **Admin panel** — manage users, roles, reports
+- [ ] **Role system** live (OWNER/MANAGER/ADMIN/AGENSI/PREMIUM/DONATE/USER)
 
 ---
 
 ## 🔜 v0.5.0 — "AI" *(FUTURE)*
 
 - [ ] **Sora AI** — personal anime assistant (Claude API)
+  - Rekomendasi berdasarkan watch history
+  - Tanya-jawab seputar anime
 
 ---
 
 ## 📊 Feature Comparison
 
-| Fitur                  | Kuudere | Miruro | 1anime | **Soraku v0.1** |
-|------------------------|:-------:|:------:|:------:|:---------------:|
-| UI/UX Quality          | ⭐⭐⭐  | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Glass Morphism UI      | ❌      | ✅     | ❌     | ✅              |
-| Anime Info Page        | ✅      | ✅     | ✅     | ✅              |
-| YouTube Trailer        | ✅      | ✅     | ✅     | ✅              |
-| Genre Filter Tabs      | ❌      | ✅     | ✅     | ✅              |
-| Theater Mode           | ❌      | ✅     | ✅     | ✅              |
-| Screenshot             | ❌      | ✅     | ❌     | ✅              |
-| Speed Control          | ❌      | ✅     | ✅     | ✅              |
-| Multi-Server           | ✅      | ✅     | ✅     | ✅ (3 server)   |
-| Sub/Dub Toggle         | ✅      | ✅     | ✅     | ✅              |
-| Indonesian Subtitle    | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
-| Auto-Skip Intro/Outro  | ✅      | ✅     | ✅     | ✅ (Aniskip)    |
-| Skip Teks Indonesia    | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
-| AniList Login          | ❌      | ✅     | ✅     | ✅              |
-| Discord Login          | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
-| Episode Grid/List View | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
-| Episode Pagination     | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
-| Watch Room             | ✅      | ❌     | ❌     | 🔜 v0.3.0      |
-| AI Assistant           | ❌      | ❌     | ✅     | 🔜 v0.5.0      |
+| Fitur                    | Kuudere | Miruro | 1anime | **Soraku v0.1** |
+|--------------------------|:-------:|:------:|:------:|:---------------:|
+| UI/UX Quality            | ⭐⭐⭐  | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Glass Morphism UI        | ❌      | ✅     | ❌     | ✅              |
+| Anime Card Hover Preview | ❌      | ✅     | ❌     | ✅ (EXCLUSIVE)  |
+| Continue Watching        | ✅      | ✅     | ✅     | ✅              |
+| Playback Resume          | ✅      | ✅     | ✅     | ✅              |
+| Keyboard Shortcuts       | ❌      | ✅     | ✅     | ✅ (Lengkap)    |
+| Episode Fetch Fallback   | ✅      | ✅     | ✅     | ✅ (Auto)       |
+| Mobile Swipe Episode     | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
+| OSD Flash Message        | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
+| Indonesian Subtitle      | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
+| Custom 404 Page          | ✅      | ✅     | ✅     | ✅ (Glass)      |
+| Auto-Skip Intro/Outro    | ✅      | ✅     | ✅     | ✅ (Aniskip)    |
+| AniList Login            | ❌      | ✅     | ✅     | ✅              |
+| Discord Login            | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
+| Theater Mode             | ❌      | ✅     | ✅     | ✅              |
+| Episode Grid/List        | ❌      | ❌     | ❌     | ✅ (EXCLUSIVE)  |
+| Watch Room               | ✅      | ❌     | ❌     | 🔜 v0.3.0      |
+| AI Assistant             | ❌      | ❌     | ✅     | 🔜 v0.5.0      |
 
 ---
 

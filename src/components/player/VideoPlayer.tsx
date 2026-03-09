@@ -75,10 +75,141 @@ export function VideoPlayer({
   const [prefs, setPrefs] = useState<PlayerPrefs>({
     autoPutar: true, lewatiOtomatis: true, lanjutOtomatis: true,
   });
+  const [osdMsg, setOsdMsg] = useState<string | null>(null);
+  const osdRef = useRef<NodeJS.Timeout | null>(null);
 
   const providerPath = PROVIDERS.find((p) => p.id === provider)?.path ?? "/anime/animekai";
 
+  // ── OSD flash message ──────────────────────────────────────────────────────
+  const osd = (msg: string) => {
+    setOsdMsg(msg);
+    if (osdRef.current) clearTimeout(osdRef.current);
+    osdRef.current = setTimeout(() => setOsdMsg(null), 1400);
+  };
+
+  // ── Playback position save/restore ─────────────────────────────────────────
+  const posKey = `soraku_pos_${episodeId}`;
+  const savePos = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || v.currentTime < 5) return;
+    try { localStorage.setItem(posKey, String(Math.floor(v.currentTime))); } catch {}
+  }, [posKey]);
+
+  useEffect(() => {
+    const interval = setInterval(savePos, 5000);
+    return () => clearInterval(interval);
+  }, [savePos]);
+
+  // Restore on load
+  const restorePos = useCallback(() => {
+    try {
+      const saved = localStorage.getItem(posKey);
+      if (saved && videoRef.current) {
+        const t = parseInt(saved);
+        if (t > 5) videoRef.current.currentTime = t;
+      }
+    } catch {}
+  }, [posKey]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const v = videoRef.current;
+      if (!v) return;
+      switch (e.key) {
+        case " ": case "k":
+          e.preventDefault();
+          if (v.paused) { v.play(); osd("▶ Putar"); setIsPlaying(true); }
+          else          { v.pause(); osd("⏸ Jeda"); setIsPlaying(false); }
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          v.currentTime = Math.min(v.duration, v.currentTime + 10);
+          osd("⏩ +10 detik");
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          v.currentTime = Math.max(0, v.currentTime - 10);
+          osd("⏪ -10 detik");
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          v.volume = Math.min(1, v.volume + 0.1);
+          setVolume(v.volume);
+          osd(`🔊 ${Math.round(v.volume * 100)}%`);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          v.volume = Math.max(0, v.volume - 0.1);
+          setVolume(v.volume);
+          osd(`🔉 ${Math.round(v.volume * 100)}%`);
+          break;
+        case "f": case "F":
+          e.preventDefault();
+          toggleFullscreen();
+          osd(document.fullscreenElement ? "⬜ Keluar Layar Penuh" : "⛶ Layar Penuh");
+          break;
+        case "t": case "T":
+          e.preventDefault();
+          onToggleTheater();
+          osd("🎭 Mode Bioskop");
+          break;
+        case "m": case "M":
+          e.preventDefault();
+          v.muted = !v.muted;
+          setIsMuted(v.muted);
+          osd(v.muted ? "🔇 Bisu" : "🔊 Suara");
+          break;
+        case "n": case "N":
+          e.preventDefault();
+          onNextEpisode();
+          osd("⏭ Episode Selanjutnya");
+          break;
+        case "p": case "P":
+          e.preventDefault();
+          onPrevEpisode();
+          osd("⏮ Episode Sebelumnya");
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Fetch source ──────────────────────────────────────────────────────────
+  const fetchFromProvider = useCallback(async (prov: AnimeProvider): Promise<boolean> => {
+    const path = PROVIDERS.find((p) => p.id === prov)?.path ?? "/anime/animekai";
+    const url = `${consumetBase}${path}/watch/${encodeURIComponent(episodeId)}`;
+    try {
+      const r = await fetch(url);
+      const data = await r.json();
+      const srcs: VideoSource[] = data?.sources ?? [];
+      const preferred =
+        srcs.find((s) => s.quality === "1080p") ??
+        srcs.find((s) => s.quality === "720p")  ??
+        srcs.find((s) => s.isM3U8)              ??
+        srcs[0];
+      if (!preferred?.url) return false;
+      setSrc(preferred.url);
+      setSources(srcs);
+      setQuality(preferred.quality ?? "auto");
+      onDownloadLink(preferred.url);
+      // Subtitles
+      const rawSubs: { url: string; lang: string }[] = data?.subtitles ?? data?.tracks ?? [];
+      const tracks: SubTrack[] = rawSubs.map((s) => ({
+        url: s.url, lang: s.lang,
+        label: s.lang === "Indonesian" || s.lang.toLowerCase().includes("indonesia") ? "Indonesia 🇮🇩" : s.lang,
+      }));
+      const idSub = tracks.find((t) => t.lang.toLowerCase().includes("indonesi") || t.lang.toLowerCase() === "id");
+      setSubtracks(tracks);
+      if (idSub) setActiveSub(idSub.url);
+      return true;
+    } catch { return false; }
+  }, [consumetBase, episodeId, onDownloadLink]);
+
   useEffect(() => {
     if (!episodeId) return;
     setIsLoading(true);
@@ -87,58 +218,33 @@ export function VideoPlayer({
     setSubtracks([]);
     setActiveSub("");
 
-    const url = `${consumetBase}${providerPath}/watch/${encodeURIComponent(episodeId)}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((data) => {
-        const srcs: VideoSource[] = data?.sources ?? [];
-        const preferred =
-          srcs.find((s) => s.quality === "1080p") ??
-          srcs.find((s) => s.quality === "720p")  ??
-          srcs.find((s) => s.isM3U8)              ??
-          srcs[0];
+    // Try primary provider, then fallback order
+    const fallbackOrder: AnimeProvider[] = [
+      provider,
+      ...PROVIDERS.map((p) => p.id).filter((id) => id !== provider),
+    ];
 
-        if (preferred?.url) {
-          setSrc(preferred.url);
-          setSources(srcs);
-          setQuality(preferred.quality ?? "auto");
-          onDownloadLink(preferred.url);
-        } else {
-          setHasError(true);
-        }
+    (async () => {
+      let success = false;
+      for (const prov of fallbackOrder) {
+        const ok = await fetchFromProvider(prov);
+        if (ok) { success = true; setProvider(prov); break; }
+      }
+      if (!success) setHasError(true);
 
-        // Subtitle tracks from Consumet
-        const rawSubs: { url: string; lang: string }[] = data?.subtitles ?? data?.tracks ?? [];
-        const tracks: SubTrack[] = rawSubs.map((s) => ({
-          url: s.url,
-          lang: s.lang,
-          label: s.lang === "Indonesian" ? "Indonesia 🇮🇩" : s.lang,
-        }));
-        // Auto-select Indonesian if available
-        const idSub = tracks.find((t) =>
-          t.lang.toLowerCase().includes("indonesian") ||
-          t.lang.toLowerCase().includes("indonesia") ||
-          t.lang.toLowerCase() === "id"
-        );
-        setSubtracks(tracks);
-        if (idSub) setActiveSub(idSub.url);
-
-        // Aniskip
-        if (malId) {
-          fetch(`https://api.aniskip.com/v2/skip-times/${malId}/${episodeNumber}?types[]=op&types[]=ed&episodeLength=0`)
-            .then((r) => r.json())
-            .then((sk) => {
-              if (sk?.results) {
-                setSkipTimes(sk.results.map((r: {
-                  interval: { startTime: number; endTime: number };
-                  skipType: string;
-                }) => ({ start: r.interval.startTime, end: r.interval.endTime, type: r.skipType })));
-              }
-            }).catch(() => {});
-        }
-      })
-      .catch(() => setHasError(true))
-      .finally(() => setIsLoading(false));
+      // Aniskip
+      if (malId) {
+        try {
+          const sk = await fetch(`https://api.aniskip.com/v2/skip-times/${malId}/${episodeNumber}?types[]=op&types[]=ed&episodeLength=0`).then((r) => r.json());
+          if (sk?.results) {
+            setSkipTimes(sk.results.map((r: { interval: { startTime: number; endTime: number }; skipType: string }) => ({
+              start: r.interval.startTime, end: r.interval.endTime, type: r.skipType,
+            })));
+          }
+        } catch {}
+      }
+      setIsLoading(false);
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episodeId, provider]);
 
@@ -158,6 +264,7 @@ export function VideoPlayer({
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.playbackRate = speed;
+        restorePos();
         if (prefs.autoPutar) video.play().catch(() => {});
       });
     } else {
@@ -352,10 +459,36 @@ export function VideoPlayer({
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
-        onEnded={() => { setIsPlaying(false); if (prefs.lanjutOtomatis) onEpisodeEnd(); }}
+        onEnded={() => {
+          savePos();
+          try { localStorage.removeItem(posKey); } catch {}
+          setIsPlaying(false);
+          if (prefs.lanjutOtomatis) onEpisodeEnd();
+        }}
         playsInline
       />
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* OSD flash message */}
+      {osdMsg && (
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 animate-scale-in"
+          style={{
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "12px",
+            padding: "0.6rem 1.2rem",
+            color: "#fff",
+            fontSize: "0.9rem",
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {osdMsg}
+        </div>
+      )}
 
       {/* Loading */}
       {isLoading && (
