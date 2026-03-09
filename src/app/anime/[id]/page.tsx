@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { Play, Plus, Star } from "lucide-react";
 import { AnimeInfoClient } from "./AnimeInfoClient";
 
 interface PageProps { params: Promise<{ id: string }>; }
@@ -12,10 +14,10 @@ const ANIME_QUERY = `
       title { romaji english native }
       coverImage { large extraLarge color }
       bannerImage
-      description(asHtml: false)
+      description(asHtml: true)
       averageScore meanScore popularity favourites
       episodes duration status format
-      season seasonYear startDate { year month day } endDate { year month day }
+      season seasonYear startDate { year month day }
       genres tags { name rank isMediaSpoiler }
       studios { nodes { id name isAnimationStudio } }
       source countryOfOrigin
@@ -23,19 +25,13 @@ const ANIME_QUERY = `
       externalLinks { url site color icon }
       relations { edges {
         relationType(version: 2)
-        node {
-          id title { romaji english }
-          coverImage { large medium color }
-          format status averageScore
-          type
-        }
+        node { id title { romaji english } coverImage { large medium color } format status type }
       }}
-      characters(sort: ROLE, perPage: 8) { edges {
-        role
+      characters(sort: ROLE, perPage: 12) { edges {
         node { id name { full } image { medium } }
         voiceActors(language: JAPANESE) { id name { full } image { medium } }
       }}
-      recommendations(sort: RATING_DESC, perPage: 8) { nodes {
+      recommendations(sort: RATING_DESC, perPage: 14) { nodes {
         mediaRecommendation {
           id title { romaji english }
           coverImage { large medium color }
@@ -54,9 +50,19 @@ async function getAnime(id: string) {
       body: JSON.stringify({ query: ANIME_QUERY, variables: { id: parseInt(id) } }),
       next: { revalidate: 3600 },
     });
-    const json = await res.json();
-    return json?.data?.Media ?? null;
+    return (await res.json())?.data?.Media ?? null;
   } catch { return null; }
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const anime = await getAnime(id);
+  if (!anime) return { title: "Anime | Soraku Stream" };
+  const title = anime.title.english || anime.title.romaji;
+  return {
+    title: `${title} | Soraku Stream`,
+    description: `Info, jadwal, dan streaming ${title} di Soraku Stream.`,
+  };
 }
 
 export default async function AnimePage({ params }: PageProps) {
@@ -67,188 +73,176 @@ export default async function AnimePage({ params }: PageProps) {
   const title = anime.title.english || anime.title.romaji;
   const score = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
   const trailer = anime.trailer?.site === "youtube" ? anime.trailer.id : null;
-  const studio = anime.studios?.nodes?.find((s: { isAnimationStudio: boolean; name: string }) => s.isAnimationStudio)?.name
+  const studio = anime.studios?.nodes?.find((s: { isAnimationStudio: boolean }) => s.isAnimationStudio)?.name
     ?? anime.studios?.nodes?.[0]?.name;
-
-  const startYear = anime.startDate?.year;
-  const statusLabel = anime.status === "RELEASING" ? "Airing"
-    : anime.status === "FINISHED" ? "Finished"
-    : anime.status === "NOT_YET_RELEASED" ? "Upcoming"
+  const statusLabel = anime.status === "RELEASING" ? "Sedang Tayang"
+    : anime.status === "FINISHED" ? "Selesai"
+    : anime.status === "NOT_YET_RELEASED" ? "Belum Tayang"
     : anime.status?.replace(/_/g, " ");
 
   return (
     <div>
-      {/* ── Banner + Cover overlay ── */}
-      <div className="relative w-full" style={{ height: "clamp(220px, 30vw, 380px)" }}>
+      {/* ── Cinematic Banner ── */}
+      <div className="relative w-full" style={{ height: "clamp(240px, 32vw, 400px)" }}>
         {anime.bannerImage ? (
-          <Image
-            src={anime.bannerImage}
-            alt={title}
-            fill priority
-            sizes="100vw"
-            className="object-cover"
-          />
+          <Image src={anime.bannerImage} alt={title} fill priority sizes="100vw" className="object-cover" />
         ) : (
-          <div className="w-full h-full"
-            style={{ backgroundColor: anime.coverImage?.color ?? "var(--bg-card)" }} />
+          <div className="w-full h-full" style={{ backgroundColor: anime.coverImage?.color ?? "var(--bg-card)" }} />
         )}
-        {/* Dark overlay */}
-        <div className="absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(10,10,12,0.7) 70%, var(--bg-primary) 100%)" }} />
+        {/* Cinematic gradient */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(to bottom, rgba(9,9,12,0.1) 0%, rgba(9,9,12,0.55) 65%, var(--bg-primary) 100%)",
+          }}
+        />
+        {/* Accent color tint */}
+        {anime.coverImage?.color && (
+          <div
+            className="absolute inset-0 opacity-15"
+            style={{ background: `radial-gradient(ellipse at 30% 100%, ${anime.coverImage.color}66, transparent 65%)` }}
+          />
+        )}
       </div>
 
-      {/* ── Info section ── */}
+      {/* ── Main content ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex gap-5 -mt-20 relative z-10 mb-6">
-          {/* Cover image */}
-          <div className="relative shrink-0 overflow-hidden rounded-xl shadow-2xl"
-            style={{ width: "clamp(100px, 14vw, 160px)", height: "clamp(140px, 20vw, 225px)" }}>
-            <Image
-              src={anime.coverImage?.extraLarge ?? anime.coverImage?.large ?? "/soraku-logo.png"}
-              alt={title}
-              fill
-              sizes="160px"
-              className="object-cover"
-              style={{ backgroundColor: anime.coverImage?.color ?? "var(--bg-hover)" }}
-            />
+        {/* Cover + header info row */}
+        <div className="flex gap-5 sm:gap-7 -mt-16 sm:-mt-20 mb-7 relative z-10">
+          {/* Cover image — glass shadow */}
+          <div className="shrink-0">
+            <div
+              className="relative overflow-hidden rounded-2xl shadow-2xl"
+              style={{
+                width: "clamp(88px, 14vw, 140px)",
+                aspectRatio: "2/3",
+                boxShadow: `0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08)`,
+              }}
+            >
+              <Image
+                src={anime.coverImage.extraLarge || anime.coverImage.large}
+                alt={title}
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
 
-          {/* Title + meta */}
-          <div className="flex flex-col justify-end pb-1 min-w-0">
-            {/* Badge pills */}
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {anime.format && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontFamily: "var(--font-display)" }}>
-                  {anime.format}
-                </span>
-              )}
-              {startYear && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontFamily: "var(--font-display)" }}>
-                  {startYear}
-                </span>
-              )}
+          {/* Info */}
+          <div className="flex-1 min-w-0 pt-2">
+            {/* Badges row */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              {anime.format && <span className="soraku-badge">{anime.format}</span>}
               {statusLabel && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: anime.status === "RELEASING" ? "rgba(34,197,94,0.15)" : "var(--bg-card)",
-                    border: `1px solid ${anime.status === "RELEASING" ? "rgba(34,197,94,0.4)" : "var(--border)"}`,
-                    color: anime.status === "RELEASING" ? "#4ade80" : "var(--text-secondary)",
-                    fontFamily: "var(--font-display)",
-                  }}>
+                <span className={`soraku-badge ${anime.status === "RELEASING" ? "soraku-badge-live" : "soraku-badge-accent"}`}>
                   {statusLabel}
                 </span>
               )}
+              {anime.seasonYear && <span className="soraku-badge">{anime.seasonYear}</span>}
               {score && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: "rgba(var(--accent-rgb),0.15)",
-                    border: "1px solid rgba(var(--accent-rgb),0.4)",
-                    color: "var(--accent)",
-                    fontFamily: "var(--font-display)",
-                  }}>
-                  {score}
+                <span className="soraku-badge flex items-center gap-1">
+                  <Star size={9} fill="#facc15" stroke="none" />
+                  <span style={{ color: "#facc15" }}>{score}</span>
                 </span>
               )}
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black leading-tight mb-1 line-clamp-2"
-              style={{ fontFamily: "var(--font-display)", color: "var(--text-primary)", letterSpacing: "-0.03em" }}>
+            <h1
+              className="text-xl sm:text-2xl font-900 leading-tight mb-1 line-clamp-2"
+              style={{ fontFamily: "var(--font-display)", fontWeight: 900, color: "var(--text-primary)", letterSpacing: "-0.03em" }}
+            >
               {title}
             </h1>
             {anime.title.romaji !== title && (
-              <p className="text-xs mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                {anime.title.romaji}
-              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{anime.title.romaji}</p>
             )}
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <Link
+                href={`/watch/${anime.id}`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full font-700 text-sm transition-all hover:scale-105 active:scale-95"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  backgroundColor: "var(--accent)",
+                  color: "#fff",
+                  boxShadow: "0 4px 20px rgba(var(--accent-rgb),0.45)",
+                }}
+              >
+                <Play size={14} fill="white" stroke="none" />
+                TONTON
+              </Link>
+
+              <button
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-700 text-sm transition-all hover:scale-105"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  background: "var(--glass-bg)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <Plus size={14} />
+                Daftar
+              </button>
+
+              {anime.id && (
+                <Link href={`https://anilist.co/anime/${anime.id}`} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-2.5 rounded-full font-900 text-xs hover:scale-105 transition-transform"
+                  style={{ backgroundColor: "#02a9ff", color: "#fff", fontFamily: "var(--font-display)", fontWeight: 900 }}
+                >A.</Link>
+              )}
+              {anime.idMal && (
+                <Link href={`https://myanimelist.net/anime/${anime.idMal}`} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-2.5 rounded-full font-900 text-xs hover:scale-105 transition-transform"
+                  style={{ backgroundColor: "#2e51a2", color: "#fff", fontFamily: "var(--font-display)", fontWeight: 900 }}
+                >MAL</Link>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* ── Action buttons ── */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          <Link href={`/watch/${anime.id}`}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all hover:scale-105 active:scale-95"
-            style={{
-              backgroundColor: "var(--accent)",
-              color: "#fff",
-              fontFamily: "var(--font-display)",
-              boxShadow: "0 4px 15px rgba(var(--accent-rgb),0.4)",
-            }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            WATCH
-          </Link>
-
-          <button
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm transition-all hover:scale-105"
-            style={{
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              color: "var(--text-secondary)",
-              fontFamily: "var(--font-display)",
-            }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Add to List
-          </button>
-
-          {/* AniList link */}
-          {anime.idMal && (
-            <Link href={`https://anilist.co/anime/${anime.id}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-full font-black text-xs transition-all hover:scale-105"
-              style={{
-                backgroundColor: "#02a9ff",
-                color: "#fff",
-                fontFamily: "var(--font-display)",
-                letterSpacing: "0.02em",
-              }}>
-              A.
-            </Link>
-          )}
-
-          {/* MAL link */}
-          {anime.idMal && (
-            <Link href={`https://myanimelist.net/anime/${anime.idMal}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-full font-black text-xs transition-all hover:scale-105"
-              style={{
-                backgroundColor: "#2e51a2",
-                color: "#fff",
-                fontFamily: "var(--font-display)",
-                letterSpacing: "0.02em",
-              }}>
-              MAL
-            </Link>
-          )}
-        </div>
-
-        {/* ── Stats grid ── */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-6">
+        {/* Stats glass grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 mb-8">
           {[
-            { label: "Episodes", value: anime.episodes ? `${anime.episodes}` : "?" },
-            { label: "Duration",  value: anime.duration ? `${anime.duration} min` : "?" },
-            { label: "Season",    value: anime.season ? `${anime.season}` : "?" },
-            { label: "Studio",    value: studio ?? "?" },
-            { label: "Country",   value: anime.countryOfOrigin ?? "?" },
+            { label: "Episode", value: anime.episodes ?? "?" },
+            { label: "Durasi", value: anime.duration ? `${anime.duration}m` : "?" },
+            { label: "Musim", value: anime.season ?? "?" },
+            { label: "Studio", value: studio ?? "?" },
+            { label: "Negara", value: anime.countryOfOrigin ?? "?" },
           ].map(({ label, value }) => (
-            <div key={label} className="flex flex-col gap-0.5 p-3 rounded-xl"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <span className="text-[0.65rem] uppercase tracking-wider font-bold"
-                style={{ color: "var(--text-muted)", fontFamily: "var(--font-display)" }}>
+            <div
+              key={label}
+              className="flex flex-col gap-1 p-3 rounded-xl"
+              style={{
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid var(--glass-border)",
+                boxShadow: "var(--shadow-card)",
+              }}
+            >
+              <span
+                className="text-[0.62rem] uppercase tracking-wider font-700"
+                style={{ color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 700 }}
+              >
                 {label}
               </span>
-              <span className="text-sm font-semibold truncate"
-                style={{ color: "var(--text-primary)", fontFamily: "var(--font-body)" }}>
+              <span
+                className="text-sm font-600 truncate"
+                style={{ color: "var(--text-primary)", fontFamily: "var(--font-display)", fontWeight: 600 }}
+              >
                 {value}
               </span>
             </div>
           ))}
         </div>
 
-        {/* ── Tab content (client) ── */}
-        <AnimeInfoClient
-          anime={anime}
-          trailer={trailer}
-          title={title}
-        />
+        {/* Tab content */}
+        <AnimeInfoClient anime={anime} trailer={trailer} title={title} />
       </div>
     </div>
   );
