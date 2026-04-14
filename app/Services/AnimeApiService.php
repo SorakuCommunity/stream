@@ -10,13 +10,13 @@ class AnimeApiService
 
     public function __construct()
     {
-        $this->baseUrl = config('services.anime_api.url', 'https://apistreams.vercel.app/v1');
+        $this->baseUrl = config('services.anime_api.url', 'http://localhost:3000/v1');
     }
 
     public function getTrending()
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/trending");
+            $response = Http::timeout(10)->get("{$this->baseUrl}/anime/trending");
 
             return $response->successful() ? $response->json() : [];
         } catch (\Exception $e) {
@@ -27,7 +27,7 @@ class AnimeApiService
     public function getRecent()
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/recent");
+            $response = Http::timeout(10)->get("{$this->baseUrl}/anime/recent");
 
             return $response->successful() ? $response->json() : [];
         } catch (\Exception $e) {
@@ -38,7 +38,7 @@ class AnimeApiService
     public function search(string $query)
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/search", ['q' => $query]);
+            $response = Http::timeout(10)->get("{$this->baseUrl}/anime/search", ['q' => $query]);
 
             return $response->successful() ? $response->json() : [];
         } catch (\Exception $e) {
@@ -46,15 +46,15 @@ class AnimeApiService
         }
     }
 
-    public function getAnime(string $id)
+public function getAnime(string $id)
     {
         try {
             $response = Http::timeout(10)->get("{$this->baseUrl}/anime/{$id}");
-
             return $response->successful() ? $response->json() : null;
         } catch (\Exception $e) {
             return null;
         }
+    }
     }
 
     public function getEpisode(string $episodeId)
@@ -71,7 +71,7 @@ class AnimeApiService
     public function getSchedule()
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/schedule");
+            $response = Http::timeout(10)->get("{$this->baseUrl}/schedule/today");
 
             return $response->successful() ? $response->json() : [];
         } catch (\Exception $e) {

@@ -1,6 +1,20 @@
 import Layout from '../components/Layout';
 
+function getAnimeImage(anime) {
+    return anime.image || anime.poster || anime.cover || anime.thumbnail || '';
+}
+
+function getAnimeTitle(anime) {
+    return anime.title || anime.titleEnglish || anime.titleJapanese || 'Unknown';
+}
+
+function getAnimeId(anime) {
+    return anime.id || anime.animeId || anime.malId || '';
+}
+
 export default function Search({ query, results = [] }) {
+    const animeList = results.results || results || [];
+    
     return (
         <Layout>
             <div className="container mx-auto px-4 py-8">
@@ -8,22 +22,23 @@ export default function Search({ query, results = [] }) {
                     {query ? `Hasil pencarian: "${query}"` : 'Cari Anime'}
                 </h1>
                 
-                {results.length > 0 ? (
+                {animeList.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {results.map((anime) => (
-                            <a key={anime.id} href={`/anime/${anime.id}`} className="group">
+                        {animeList.map((anime) => (
+                            <a key={getAnimeId(anime)} href={`/anime/${getAnimeId(anime)}`} className="group">
                                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2">
                                     <img 
-                                        src={anime.poster || anime.image} 
-                                        alt={anime.title}
+                                        src={getAnimeImage(anime)} 
+                                        alt={getAnimeTitle(anime)}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        loading="lazy"
                                     />
                                     <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
                                         {anime.status || anime.type || 'Unknown'}
                                     </div>
                                 </div>
                                 <h3 className="text-sm font-medium truncate group-hover:text-purple-400">
-                                    {anime.title}
+                                    {getAnimeTitle(anime)}
                                 </h3>
                             </a>
                         ))}
